@@ -19,5 +19,14 @@
   "devDependencies": {
     "concurrently": "^9.2.1",
     "vite": "^7.2.2"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.5",
+    "sharp": "^0.34.5"
   }
 }
