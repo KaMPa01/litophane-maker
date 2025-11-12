@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 
 export default function UploadImage({ selectedTexture }) {
   const [file, setFile] = useState(null)
@@ -17,6 +17,68 @@ export default function UploadImage({ selectedTexture }) {
 
     return () => URL.revokeObjectURL(objectUrl)
   }, [file])
+
+  const canvasRef = useRef(null)
+  const [textureLoadError, setTextureLoadError] = useState(null)
+
+  // Draw combined preview on canvas whenever preview, selectedTexture or blend change
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || !preview) return
+
+    const ctx = canvas.getContext('2d')
+    setTextureLoadError(null)
+
+    const baseImg = new Image()
+    baseImg.crossOrigin = 'anonymous'
+    baseImg.onload = () => {
+      // Resize canvas to image size, but limit max dimension for UI
+      const maxDim = 800
+      let w = baseImg.width
+      let h = baseImg.height
+      if (Math.max(w, h) > maxDim) {
+        const scale = maxDim / Math.max(w, h)
+        w = Math.round(w * scale)
+        h = Math.round(h * scale)
+      }
+      canvas.width = w
+      canvas.height = h
+
+      // Draw base image scaled to canvas
+      ctx.clearRect(0, 0, w, h)
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.drawImage(baseImg, 0, 0, w, h)
+
+      // If there's a selected texture, draw it with the chosen blend mode
+      if (selectedTexture) {
+        const texImg = new Image()
+        texImg.crossOrigin = 'anonymous'
+        texImg.onload = () => {
+          try {
+            // set blend (use the selected blend from state)
+            const blendOp = blend || 'overlay'
+            // draw texture covering the canvas
+            ctx.globalCompositeOperation = blendOp
+            // draw texture stretched to cover
+            ctx.drawImage(texImg, 0, 0, w, h)
+            // reset composite mode
+            ctx.globalCompositeOperation = 'source-over'
+          } catch (err) {
+            console.warn('Error compositing texture on canvas', err)
+            setTextureLoadError('No se pudo aplicar la textura en la vista previa')
+          }
+        }
+        texImg.onerror = () => {
+          setTextureLoadError('Error cargando la textura (CORS o URL inválida)')
+        }
+        texImg.src = selectedTexture
+      }
+    }
+    baseImg.onerror = () => {
+      setPreview(null)
+    }
+    baseImg.src = preview
+  }, [preview, selectedTexture, blend])
 
   function onFileChange(e) {
     const f = e.target.files && e.target.files[0]
@@ -60,7 +122,10 @@ export default function UploadImage({ selectedTexture }) {
         <input type="file" accept="image/*" onChange={onFileChange} />
         <div style={{ marginTop: 8 }}>
           {preview ? (
-            <img src={preview} alt="preview" style={{ maxWidth: 240, maxHeight: 240, display: 'block' }} />
+            <div>
+              <canvas ref={canvasRef} style={{ maxWidth: 480, width: '100%', height: 'auto', border: '1px solid #ddd' }} />
+              {textureLoadError && <div style={{ color: 'crimson' }}>{textureLoadError}</div>}
+            </div>
           ) : (
             <div style={{ color: '#666' }}>Sin vista previa</div>
           )}
