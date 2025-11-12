@@ -47,12 +47,34 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
     const textureArrayBuffer = await textureResp.arrayBuffer();
     const textureBuffer = Buffer.from(textureArrayBuffer);
 
+    // Determinar modo de mezcla (blend). Aceptar valores seguros y mapear 'color-*' a 'colour-*' si es necesario.
+    const requestedBlend = (req.body.blend || 'overlay').toString().toLowerCase();
+    const blendMap = {
+      'color-dodge': 'colour-dodge',
+      'color-burn': 'colour-burn',
+    };
+    let blend = blendMap[requestedBlend] || requestedBlend;
+    const allowed = new Set([
+      'overlay',
+      'multiply',
+      'screen',
+      'soft-light',
+      'hard-light',
+      'darken',
+      'lighten',
+      'difference',
+      'exclusion',
+      'colour-dodge',
+      'colour-burn',
+    ]);
+    if (!allowed.has(blend)) blend = 'overlay';
+
     // Componer la textura sobre la imagen usando sharp
     const combinedName = 'combined-' + Date.now() + '.png';
     const combinedPath = path.join(uploadDir, combinedName);
 
     await sharp(filePath)
-      .composite([{ input: textureBuffer, gravity: 'center', blend: 'overlay' }])
+      .composite([{ input: textureBuffer, gravity: 'center', blend }])
       .toFile(combinedPath);
 
     // Simular generación de STL (archivo fake)
